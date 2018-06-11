@@ -1,0 +1,8 @@
+[package]
+name = "sdl_test"
+version = "0.1.0"
+authors = ["wws <1274704958@qq.com>"]
+build = "build.rs"
+
+[dependencies]
+sdl2 = {version = "0.31.0",features = ["gfx","image","unsafe_textures"]}
