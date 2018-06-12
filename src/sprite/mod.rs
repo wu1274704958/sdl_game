@@ -9,7 +9,16 @@ pub trait Drawable{
 }
 
 pub trait EventHandle{
-    fn onHandleEvent(&self,e:&Event);
+    fn on_handle_event(&self,e:&Event);
+}
+
+pub trait BV{
+    fn is_visible(&self) ->bool;
+    fn in_bound(&self,p:(i32,i32)) ->bool;
+}
+
+pub trait DH : Drawable + EventHandle + BV {
+
 }
 
 pub struct Sprite{
@@ -32,11 +41,28 @@ impl Drawable for Sprite{
 }
 
 impl EventHandle for Sprite{
-    fn onHandleEvent(&self,e: &Event) {
+    fn on_handle_event(&self,e: &Event) {
         if let Some(ref f) = self.event_func{
             f(e,self);
         }
     }
+}
+
+impl BV for Sprite{
+    fn is_visible(&self) -> bool {
+        self.isVisible
+    }
+
+    fn in_bound(&self, p: (i32, i32)) -> bool {
+        if let Some(ref r) = self.dst{
+            return r.contains(p);
+        }
+        false
+    }
+}
+
+impl DH for Sprite{
+
 }
 
 impl Sprite{
@@ -53,11 +79,5 @@ impl Sprite{
         unsafe { (self as *const Sprite) as * mut Sprite}
     }
 
-    pub fn inBound(&self,p:(i32,i32)) ->bool {
-        if let Some(ref r) = self.dst{
-            return r.contains(p);
-        }
-        false
-    }
 }
 

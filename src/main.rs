@@ -20,7 +20,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::vec::Vec;
 
-use sdl_test::sprite::{ Sprite , Drawable,EventHandle};
+use sdl_test::sprite::{ Sprite , Drawable,EventHandle,BV,DH};
 
 const START_W:u32 = 180;
 const START_H:u32 = 80;
@@ -28,9 +28,8 @@ const START_H:u32 = 80;
 const W:u32 = 800;
 const H:u32 = 600;
 
-
 pub fn run(png: &Path) {
-    let sprites : Rc<RefCell<Vec<RefCell<Sprite>>>> = Rc::new(RefCell::new(Vec::new()));
+    let sprites : Rc<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>> = Rc::new(RefCell::new(Vec::new()));
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -74,7 +73,7 @@ pub fn run(png: &Path) {
     cursor.set();
 
     let start_sprite = create_start(start_texture);
-    (*sprites).borrow_mut().push(RefCell::new(start_sprite));
+    (*sprites).borrow_mut().push(RefCell::new(Box::new(start_sprite)));
 
 
     canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
@@ -87,8 +86,8 @@ pub fn run(png: &Path) {
         let temp = (*sprites).borrow();
         for event in events.poll_iter() {
             for i in 0..(*sprites).borrow().len(){
-                if temp[i].borrow().isVisible && temp[i].borrow().inBound(mouse_pos){
-                    temp[i].borrow().onHandleEvent(&event);
+                if temp[i].borrow().is_visible() && temp[i].borrow().in_bound(mouse_pos){
+                    temp[i].borrow().on_handle_event(&event);
                 }
             }
             match event {
@@ -102,13 +101,14 @@ pub fn run(png: &Path) {
         canvas.clear();
 
         for i in 0..(*sprites).borrow().len(){
-            if temp[i].borrow_mut().isVisible{
+            if temp[i].borrow_mut().is_visible(){
                 temp[i].borrow_mut().draw(&mut canvas);
             }
         }
         canvas.present();
 
     }
+    println!("{}",Rc::strong_count(&sprites));
 }
 
 fn create_start(te : Texture) -> Sprite
