@@ -16,6 +16,9 @@ use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::gfx::rotozoom::RotozoomSurface;
 use sdl2::render::WindowCanvas;
 use sdl2::render::Texture;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::vec::Vec;
 
 use sdl_test::sprite::{ Sprite , Drawable,EventHandle};
 
@@ -27,6 +30,7 @@ const H:u32 = 600;
 
 
 pub fn run(png: &Path) {
+    let sprites : Rc<RefCell<Vec<RefCell<Sprite>>>> = Rc::new(RefCell::new(Vec::new()));
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -54,7 +58,7 @@ pub fn run(png: &Path) {
         }
     };
 
-    let start_surface =  match Surface::from_file("start.png") {
+    let start_surface =  match Surface::from_file("resource/start.png") {
         Ok(surface) => surface,
         Err(err) => panic!("failed to load cursor image: {}", err)
     };
@@ -70,6 +74,8 @@ pub fn run(png: &Path) {
     cursor.set();
 
     let start_sprite = create_start(start_texture);
+    (*sprites).borrow_mut().push(RefCell::new(start_sprite));
+
 
     canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
 
@@ -77,7 +83,14 @@ pub fn run(png: &Path) {
     let mut events = sdl_context.event_pump().unwrap();
 
     'mainloop: loop {
+        let mouse_pos = (events.mouse_state().x(),events.mouse_state().y());
+        let temp = (*sprites).borrow();
         for event in events.poll_iter() {
+            for i in 0..(*sprites).borrow().len(){
+                if temp[i].borrow().isVisible && temp[i].borrow().inBound(mouse_pos){
+                    temp[i].borrow().onHandleEvent(&event);
+                }
+            }
             match event {
                 Event::Quit{..} |
                 Event::KeyDown {keycode: Option::Some(Keycode::Escape), ..} =>
@@ -85,8 +98,14 @@ pub fn run(png: &Path) {
                 _ => {}
             }
         }
+
         canvas.clear();
-        start_sprite.draw(&mut canvas);
+
+        for i in 0..(*sprites).borrow().len(){
+            if temp[i].borrow_mut().isVisible{
+                temp[i].borrow_mut().draw(&mut canvas);
+            }
+        }
         canvas.present();
 
     }
@@ -95,17 +114,37 @@ pub fn run(png: &Path) {
 fn create_start(te : Texture) -> Sprite
 {
     let dst = Rect::new(((W - START_W) / 2) as i32,((H - START_H) / 2) as i32,START_W as u32,START_H as u32);
-    Sprite::new(None,Some(dst),te)
+    let mut start = Sprite::new(None,Some(dst),te,"start");
+
+    start.setEventFunc(|e,s|{
+        match *e {
+            Event::MouseButtonDown {mouse_btn,..} => {
+                match mouse_btn {
+                    MouseButton::Left => {
+                        let nw = START_W - 10;
+                        let nh = START_H - 4;
+                        let n_dst = Rect::new(((W - nw ) / 2) as i32,((H - nh) / 2) as i32,nw as u32,nh as u32);
+                        unsafe {(*s.getRefMut()).dst = Some(n_dst);}
+                    },
+                    _ => {}
+                }
+            },
+            Event::MouseButtonUp {mouse_btn,..} => {
+                match mouse_btn {
+                    MouseButton::Left => {
+                        let dst = Rect::new(((W - START_W) / 2) as i32,((H - START_H) / 2) as i32,START_W as u32,START_H as u32);
+                        unsafe {(*s.getRefMut()).dst = Some(dst);}
+                    },
+                    _ =>{}
+                }
+            }
+            _ => {}
+        }
+    });
+    start
 }
 
 
 fn main() {
-
-    let args: Vec<_> = env::args().collect();
-
-    if args.len() < 2 {
-        println!("Usage: cargo run /path/to/image.(png|jpg)")
-    } else {
-        run(Path::new(&args[1]));
-    }
+    run(Path::new("resource/cursor.png"));
 }

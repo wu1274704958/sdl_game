@@ -9,26 +9,55 @@ pub trait Drawable{
 }
 
 pub trait EventHandle{
-    fn onHandleEvent(e:&Event);
+    fn onHandleEvent(&self,e:&Event);
 }
 
 pub struct Sprite{
     src:Option<Rect>,
-    dst:Option<Rect>,
-    texture : Texture
+    pub dst:Option<Rect>,
+    texture : Texture,
+    pub isVisible : bool,
+    event_func : Option<fn(&Event,&Sprite)>,
+    pub tag: &'static str
 }
 
 impl Drawable for Sprite{
     type Target = WindowCanvas;
 
     fn draw(&self, t: &mut Self::Target) {
-        (*t).copy(&(self.texture),self.src,self.dst);
+        if self.isVisible {
+            (*t).copy(&(self.texture), self.src, self.dst);
+        }
+    }
+}
+
+impl EventHandle for Sprite{
+    fn onHandleEvent(&self,e: &Event) {
+        if let Some(ref f) = self.event_func{
+            f(e,self);
+        }
     }
 }
 
 impl Sprite{
-    pub fn new(src:Option<Rect>,dst_:Option<Rect>,te:Texture)->Sprite{
-        Sprite{src:None,dst:dst_,texture:te}
+    pub fn new(src:Option<Rect>,dst_:Option<Rect>,te:Texture,_tag:&'static str)->Sprite{
+        Sprite{src:None,dst:dst_,texture:te,isVisible:true,event_func:None,tag:_tag}
+    }
+
+    pub fn setEventFunc(&mut self,f : fn(&Event,&Sprite))
+    {
+        self.event_func = Some(f);
+    }
+
+    pub fn getRefMut(&self) -> *mut Sprite{
+        unsafe { (self as *const Sprite) as * mut Sprite}
+    }
+
+    pub fn inBound(&self,p:(i32,i32)) ->bool {
+        if let Some(ref r) = self.dst{
+            return r.contains(p);
+        }
+        false
     }
 }
 
