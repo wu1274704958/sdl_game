@@ -26,7 +26,7 @@ pub struct Sprite{
     pub dst:Option<Rect>,
     texture : Texture,
     pub isVisible : bool,
-    event_func : Option<fn(&Event,&Sprite)>,
+    event_func : Option<Box<Fn(&Event,&Sprite)>>,
     pub tag: &'static str
 }
 
@@ -43,7 +43,7 @@ impl Drawable for Sprite{
 impl EventHandle for Sprite{
     fn on_handle_event(&self,e: &Event) {
         if let Some(ref f) = self.event_func{
-            f(e,self);
+            (*f)(e,self);
         }
     }
 }
@@ -70,7 +70,7 @@ impl Sprite{
         Sprite{src:None,dst:dst_,texture:te,isVisible:true,event_func:None,tag:_tag}
     }
 
-    pub fn setEventFunc(&mut self,f : fn(&Event,&Sprite))
+    pub fn setEventFunc(&mut self,f : Box<Fn(&Event,&Sprite)->()>)
     {
         self.event_func = Some(f);
     }

@@ -19,6 +19,7 @@ use sdl2::render::Texture;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::vec::Vec;
+use std::rc::Weak;
 
 use sdl_test::sprite::{ Sprite , Drawable,EventHandle,BV,DH};
 
@@ -72,7 +73,7 @@ pub fn run(png: &Path) {
     };
     cursor.set();
 
-    let start_sprite = create_start(start_texture);
+    let start_sprite = create_start(start_texture,Rc::downgrade(&sprites));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(start_sprite)));
 
 
@@ -108,15 +109,19 @@ pub fn run(png: &Path) {
         canvas.present();
 
     }
-    println!("{}",Rc::strong_count(&sprites));
+    println!("end  {}",Rc::strong_count(&sprites));
 }
 
-fn create_start(te : Texture) -> Sprite
+fn create_start(te : Texture,sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>) -> Sprite
 {
     let dst = Rect::new(((W - START_W) / 2) as i32,((H - START_H) / 2) as i32,START_W as u32,START_H as u32);
     let mut start = Sprite::new(None,Some(dst),te,"start");
 
-    start.setEventFunc(|e,s|{
+    start.setEventFunc(Box::new(move |e:&Event,s:&Sprite|{
+        if let Some(sp_up) = sps.upgrade(){
+            let temp = (*sp_up).borrow();
+            println!("{}",temp[0].borrow().is_visible());
+        }
         match *e {
             Event::MouseButtonDown {mouse_btn,..} => {
                 match mouse_btn {
@@ -140,7 +145,7 @@ fn create_start(te : Texture) -> Sprite
             }
             _ => {}
         }
-    });
+    }));
     start
 }
 
