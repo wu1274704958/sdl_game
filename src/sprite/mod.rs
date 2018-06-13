@@ -17,17 +17,26 @@ pub trait BV{
     fn in_bound(&self,p:(i32,i32)) ->bool;
 }
 
-pub trait DH : Drawable + EventHandle + BV {
+pub trait HasTag{
+    fn tag(&self)->&'static str;
+}
+
+pub trait Update{
+    fn update(&self,delatime:u32);
+}
+
+pub trait DH : Drawable + EventHandle + BV + HasTag + Update{
 
 }
 
 pub struct Sprite{
-    src:Option<Rect>,
+    pub src:Option<Rect>,
     pub dst:Option<Rect>,
     texture : Texture,
     pub isVisible : bool,
     event_func : Option<Box<Fn(&Event,&Sprite)>>,
-    pub tag: &'static str
+    update_func : Option<Box<Fn(u32,&Sprite)>>,
+    tag: &'static str
 }
 
 impl Drawable for Sprite{
@@ -61,18 +70,37 @@ impl BV for Sprite{
     }
 }
 
+impl HasTag for Sprite{
+    fn tag(&self) -> &'static str {
+        self.tag
+    }
+}
+
+impl Update for Sprite{
+    fn update(&self, delatime: u32) {
+        if let Some(ref f) = self.update_func{
+            (*f)(delatime,self);
+        }
+    }
+}
+
+
 impl DH for Sprite{
 
 }
 
 impl Sprite{
-    pub fn new(src:Option<Rect>,dst_:Option<Rect>,te:Texture,_tag:&'static str)->Sprite{
-        Sprite{src:None,dst:dst_,texture:te,isVisible:true,event_func:None,tag:_tag}
+    pub fn new(src_:Option<Rect>,dst_:Option<Rect>,te:Texture,_tag:&'static str)->Sprite{
+        Sprite{src:src_,dst:dst_,texture:te,isVisible:true,event_func:None,update_func:None,tag:_tag}
     }
 
     pub fn setEventFunc(&mut self,f : Box<Fn(&Event,&Sprite)->()>)
     {
         self.event_func = Some(f);
+    }
+    pub fn setUpdateFunc(&mut self,f : Box<Fn(u32,&Sprite)->()>)
+    {
+        self.update_func = Some(f);
     }
 
     pub fn getRefMut(&self) -> *mut Sprite{
