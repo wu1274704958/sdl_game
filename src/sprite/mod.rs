@@ -22,7 +22,7 @@ pub trait HasTag{
 }
 
 pub trait Update{
-    fn update(&self,delatime:u32);
+    fn update(&self,delatime:f32);
 }
 
 pub trait DH : Drawable + EventHandle + BV + HasTag + Update{
@@ -35,7 +35,7 @@ pub struct Sprite{
     texture : Texture,
     pub isVisible : bool,
     event_func : Option<Box<Fn(&Event,&Sprite)>>,
-    update_func : Option<Box<Fn(u32,&Sprite)>>,
+    update_func : Option<Box<Fn(f32,&Sprite)>>,
     tag: &'static str
 }
 
@@ -77,7 +77,7 @@ impl HasTag for Sprite{
 }
 
 impl Update for Sprite{
-    fn update(&self, delatime: u32) {
+    fn update(&self, delatime: f32) {
         if let Some(ref f) = self.update_func{
             (*f)(delatime,self);
         }
@@ -98,7 +98,7 @@ impl Sprite{
     {
         self.event_func = Some(f);
     }
-    pub fn setUpdateFunc(&mut self,f : Box<Fn(u32,&Sprite)->()>)
+    pub fn setUpdateFunc(&mut self,f : Box<Fn(f32,&Sprite)->()>)
     {
         self.update_func = Some(f);
     }
