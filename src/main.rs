@@ -23,10 +23,13 @@ use std::rc::Weak;
 use std::time::SystemTime;
 use std::thread::sleep_ms;
 use sdl2::video::WindowContext;
+use sdl_test::plane::Bullet;
+
 
 
 use sdl_test::sprite::{ Sprite , Drawable,EventHandle,BV,DH,HasTag};
 use sdl_test::plane::Plane;
+use std::cell::Ref;
 
 const START_W:u32 = 180;
 const START_H:u32 = 80;
@@ -35,9 +38,13 @@ const W:u32 = 400;
 const H:u32 = 500;
 
 static mut BGY:f32 = 1000f32;
+static mut BULLET_TEX_PTR:*const Texture = 0 as *const Texture;
+
+static mut MOUSE_POS:(i32,i32) = (0,0);
 
 pub fn run(png: &Path) {
     let sprites : Rc<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>> = Rc::new(RefCell::new(Vec::new()));
+    let buffer : Rc<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>> = Rc::new(RefCell::new(Vec::new()));
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -68,15 +75,17 @@ pub fn run(png: &Path) {
     };
     cursor.set();
 
+    let bullet_texture = create_texture!("resource/bullet.png",texture_creator);
+    unsafe {BULLET_TEX_PTR = &bullet_texture as *const Texture;}
+
     let start_sprite = create_start(&texture_creator,Rc::downgrade(&sprites));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(start_sprite)));
 
     let bg_sprite = create_bg(&texture_creator);
     (*sprites).borrow_mut().push(RefCell::new(Box::new(bg_sprite)));
 
-    let plane_player = create_plane(&texture_creator);
+    let plane_player = create_plane(&texture_creator,Rc::downgrade(&sprites),Rc::downgrade(&buffer));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(plane_player)));
-
 
     canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
 
@@ -88,31 +97,43 @@ pub fn run(png: &Path) {
     'mainloop: loop {
         let start_time = SystemTime::now();
 
-        let mouse_pos = (events.mouse_state().x(),events.mouse_state().y());
-        let temp = (*sprites).borrow();
-        for event in events.poll_iter() {
-            for i in 0..temp.len(){
-                if temp[i].borrow().is_visible() && temp[i].borrow().in_bound(mouse_pos){
-                    temp[i].borrow().on_handle_event(&event);
+        unsafe { MOUSE_POS = (events.mouse_state().x(),events.mouse_state().y());}
+        {
+            let temp = (*sprites).borrow();
+            for event in events.poll_iter() {
+                for i in 0..temp.len() {
+                    if temp[i].borrow().is_visible() && temp[i].borrow().in_bound(unsafe{MOUSE_POS}) {
+                        temp[i].borrow().on_handle_event(&event);
+                    }
+                }
+                match event {
+                    Event::Quit { .. } |
+                    Event::KeyDown { keycode: Option::Some(Keycode::Escape), .. } =>
+                        break 'mainloop,
+                    _ => {}
                 }
             }
-            match event {
-                Event::Quit{..} |
-                Event::KeyDown {keycode: Option::Some(Keycode::Escape), ..} =>
-                    break 'mainloop,
-                _ => {}
+
+            canvas.clear();
+
+            for i in 0..temp.len() {
+                if temp[i].borrow().is_visible() {
+                    temp[i].borrow().draw(&mut canvas);
+                    temp[i].borrow().update(delatime);
+                }
+            }
+            canvas.present();
+        }
+        if !buffer.borrow().is_empty(){
+            let mut temp = (*sprites).borrow_mut();
+            let mut buf_temp = (*buffer).borrow_mut();
+            while !buf_temp.is_empty() {
+                if let Some(thing) = buf_temp.pop() {
+                    temp.push(thing);
+                }
             }
         }
 
-        canvas.clear();
-
-        for i in 0..temp.len(){
-            if temp[i].borrow().is_visible(){
-                temp[i].borrow().draw(&mut canvas);
-                temp[i].borrow().update(delatime);
-            }
-        }
-        canvas.present();
         let end_time = SystemTime::now();
 
         delatime = match start_time.elapsed() {
@@ -134,7 +155,8 @@ pub fn run(png: &Path) {
     println!("end  {}",Rc::strong_count(&sprites));
 }
 
-fn create_start(tc : &TextureCreator<WindowContext>,sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>) -> Sprite
+fn create_start(tc : &TextureCreator<WindowContext>,
+                sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>) -> Sprite
 {
     let start_texture = create_texture!("resource/start.png",tc);
 
@@ -181,7 +203,7 @@ fn create_start(tc : &TextureCreator<WindowContext>,sps : Weak<RefCell<Vec<RefCe
                                     "plane" => {
                                         unsafe {
                                             let temp_plane: &RefCell<Box<Plane>> = std::mem::transmute(it);
-                                            temp_plane.borrow_mut().sprite.isVisible = true;
+                                            temp_plane.borrow_mut().isVisible = true;
                                         }
                                     }
                                     _ => {}
@@ -232,19 +254,58 @@ fn create_bg(tc : &TextureCreator<WindowContext>) ->Sprite
     sprite
 }
 
-fn create_plane(tc : &TextureCreator<WindowContext>) -> Plane
+fn create_plane(tc : &TextureCreator<WindowContext>,
+                sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
+                buffer : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>) -> Plane
 {
     let plane_te:Texture = create_texture!("resource/plane.png",tc);
     let mut plane = Plane::new((W as i32 / 2) as f32,(H as i32 / 2) as f32,94u32 / 3u32,127u32/3u32,plane_te,"plane");
-    plane.sprite.isVisible = false;
-    plane.setEventFunc(Box::new(|e:&Event,s:&Plane|{
+    plane.isVisible = false;
+
+    plane.setUpdateFunc(Box::new(|delatime:f32,p:&Plane|{
+        if p.is_visible(){
+            let mut vec:(f32,f32) = unsafe { (MOUSE_POS.0 as f32 - p.x(),MOUSE_POS.1 as f32 - p.y()) };
+            if vec.0.abs() > 1f32 || vec.1.abs() > 1f32 {
+                vec.0 *= 0.2;
+                vec.1 *= 0.2;
+            }
+            unsafe { (*p.getRefMut()).set_pos((p.x() + vec.0,p.y() + vec.1)); }
+        }
+    }));
+
+    plane.setEventFunc(Box::new(move |e:&Event,s:&Plane|{
         match *e {
-            Event::MouseMotion {x,y,..} => {
+            Event::MouseButtonDown {mouse_btn,..} =>{
                 if s.is_visible(){
-                    let mut vec:(f32,f32) = (x as f32 - s.x(),y as f32 - s.y());
-                    vec.0 *= 0.3f32;
-                    vec.1 *= 0.3f32;
-                    unsafe { (*s.getRefMut()).set_pos((s.x() + vec.0,s.y() + vec.1)); }
+                    match mouse_btn {
+                        MouseButton::Left =>{
+                            if let Some(up_sps) = sps.upgrade(){
+                                let temp = up_sps.borrow();
+                                let mut not_find = true;
+                                for i in 0..temp.len(){
+                                    let sp_temp = temp[i].borrow();
+                                    if sp_temp.tag() == "player_bullet" && !sp_temp.is_visible(){
+                                        //println!("find one");
+                                        not_find = false;
+                                        unsafe {
+                                            let temp_bu: &Ref<Box<Bullet>> = std::mem::transmute(&sp_temp);
+                                            (*(temp_bu.getRefMut())).set_pos((s.x() as f32,s.y() as f32 - 5.0f32));
+                                            (*(temp_bu.getRefMut())).isVisible = true;
+                                        }
+                                        break;
+                                    }
+                                }
+                                if not_find{
+                                    if let Some(buffer_up) = buffer.upgrade() {
+                                        let mut temp = (*buffer_up).borrow_mut();
+                                        let bullet = create_bullet_player(s.x() as f32,s.y() as f32 - 5.0f32);
+                                        temp.push(RefCell::new(Box::new(bullet)));
+                                    }
+                                }
+                            }
+                        },
+                        _ =>{}
+                    }
                 }
             },
             _=>{}
@@ -253,8 +314,22 @@ fn create_plane(tc : &TextureCreator<WindowContext>) -> Plane
     plane
 }
 
-fn create_bullet_player() -> (){//Plane{
-
+fn create_bullet_player<'a>(x:f32,y:f32) -> Bullet<'a>{
+    let texture_ = unsafe{ &(*BULLET_TEX_PTR)};
+    let mut bullet = Bullet::new(x,y,10,16,-5f32,texture_,"player_bullet");
+    bullet.setUpdateFunc(Box::new(
+       |delatime:f32,b:&Bullet|{
+           if b.is_visible(){
+               let t_y = b.y();
+               if t_y  < 0f32 {
+                   unsafe { (*b.getRefMut()).isVisible = false;}
+               }else{
+                   unsafe { (*b.getRefMut()).set_y(t_y + b.vy);}
+               }
+           }
+       }
+    ));
+    bullet
 }
 
 
