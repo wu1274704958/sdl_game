@@ -1,5 +1,9 @@
 extern crate sdl2;
 #[macro_use] extern crate sdl_test;
+extern crate rand;
+
+use rand::thread_rng;
+use rand::RngCore;
 
 use std::env;
 use std::path::Path;
@@ -272,7 +276,10 @@ fn create_plane_player(
     let mut plane = Plane::new((W as i32 / 2) as f32,(H as i32 / 2) as f32,94u32 / 3u32,127u32/3u32,false,plane_te,"plane");
     plane.isVisible = false;
 
-    plane.setUpdateFunc(Box::new(|delatime:f32,p:&Plane|{
+    let sps_clone = sps.clone();
+    let buffer_clone = buffer.clone();
+
+    plane.setUpdateFunc(Box::new(move |delatime:f32,p:&Plane|{
         if p.is_visible(){
             let mut vec:(f32,f32) = unsafe { (MOUSE_POS.0 as f32 - p.x(),MOUSE_POS.1 as f32 - p.y()) };
             if vec.0.abs() > 1f32 || vec.1.abs() > 1f32 {
@@ -280,6 +287,10 @@ fn create_plane_player(
                 vec.1 *= 0.2;
             }
             unsafe { (*p.getRefMut()).set_pos((p.x() + vec.0,p.y() + vec.1)); }
+            let n1 = unsafe{BGY as u32} % 30;
+            if n1 == 0{
+                create_plane_enemy(&sps_clone,&buffer_clone);
+            }
         }
     }));
 
@@ -289,30 +300,7 @@ fn create_plane_player(
                 if s.is_visible(){
                     match mouse_btn {
                         MouseButton::Left =>{
-                            if let Some(up_sps) = sps.upgrade(){
-                                let temp = up_sps.borrow();
-                                let mut not_find = true;
-                                for i in 0..temp.len(){
-                                    let sp_temp = temp[i].borrow();
-                                    if sp_temp.tag() == "player_bullet" && !sp_temp.is_visible(){
-                                        //println!("find one");
-                                        not_find = false;
-                                        unsafe {
-                                            let temp_bu: &Ref<Box<Bullet>> = std::mem::transmute(&sp_temp);
-                                            (*(temp_bu.getRefMut())).set_pos((s.x() as f32,s.y() as f32 - 25.0f32));
-                                            (*(temp_bu.getRefMut())).isVisible = true;
-                                        }
-                                        break;
-                                    }
-                                }
-                                if not_find{
-                                    if let Some(buffer_up) = buffer.upgrade() {
-                                        let mut temp = (*buffer_up).borrow_mut();
-                                        let bullet = create_bullet_player(s.x() as f32,s.y() as f32 - 25.0f32);
-                                        temp.push(RefCell::new(Box::new(bullet)));
-                                    }
-                                }
-                            }
+                            create_bullet_player(s.x(),s.y(),&sps,&buffer);
                         },
                         _ =>{}
                     }
@@ -324,25 +312,93 @@ fn create_plane_player(
     plane
 }
 
-fn create_bullet_player<'a>(x:f32,y:f32) -> Bullet<'a>{
-    let texture_ = unsafe{ &(*BULLET_TEX_PTR)};
-    let mut bullet = Bullet::new(x,y,10,16,0f32,-10f32,0f64,false,texture_,"player_bullet");
-    bullet.setUpdateFunc(Box::new(
-       |delatime:f32,b:&Bullet|{
-           if b.is_visible(){
-               let t_y = b.y();
-               if t_y  < 0f32 {
-                   unsafe { (*b.getRefMut()).isVisible = false;}
-               }else{
-                   unsafe { (*b.getRefMut()).set_y(t_y + b.vy);}
-               }
-           }
-       }
-    ));
-    bullet
+fn create_bullet_player(x:f32,y:f32,
+                            sps : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
+                            buffer : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>){
+
+    if let Some(up_sps) = sps.upgrade(){
+        let temp = up_sps.borrow();
+        let mut not_find = true;
+        for i in 0..temp.len(){
+            let sp_temp = temp[i].borrow();
+            if sp_temp.tag() == "player_bullet" && !sp_temp.is_visible(){
+                //println!("find one");
+                not_find = false;
+                unsafe {
+                    let temp_bu: &Ref<Box<Bullet>> = std::mem::transmute(&sp_temp);
+                    (*(temp_bu.getRefMut())).set_pos((x,y - 25.0f32));
+                    (*(temp_bu.getRefMut())).isVisible = true;
+                }
+                break;
+            }
+        }
+        if not_find{
+            if let Some(buffer_up) = buffer.upgrade() {
+                let mut temp = (*buffer_up).borrow_mut();
+
+                let texture_ = unsafe{ &(*BULLET_TEX_PTR)};
+                let mut bullet = Bullet::new(x,y,10,16,0f32,-10f32,0f64,false,texture_,"player_bullet");
+                bullet.setUpdateFunc(Box::new(
+                    |delatime:f32,b:&Bullet|{
+                        if b.is_visible(){
+                            let t_y = b.y();
+                            if t_y  < 0f32 {
+                                unsafe { (*b.getRefMut()).isVisible = false;}
+                            }else{
+                                unsafe { (*b.getRefMut()).set_y(t_y + b.vy);}
+                            }
+                        }
+                    }
+                ));
+
+                temp.push(RefCell::new(Box::new(bullet)));
+            }
+        }
+    }
 }
 
-fn create_plane_enemy(){}
+fn create_plane_enemy(sps : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
+                      buffer : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>){
+    let mut rng = thread_rng();
+    let x = rng.next_u32() % 300 + 50;
+
+    if let Some(up_sps) = sps.upgrade(){
+        let temp = up_sps.borrow();
+        let mut not_find = true;
+        for i in 0..temp.len(){
+            let sp_temp = temp[i].borrow();
+            if sp_temp.tag() == "enemy" && !sp_temp.is_visible(){
+                //println!("find one");
+                not_find = false;
+                unsafe {
+                    let temp_bu: &Ref<Box<Bullet>> = std::mem::transmute(&sp_temp);
+                    (*(temp_bu.getRefMut())).set_pos((x as f32,-36f32));
+                    (*(temp_bu.getRefMut())).isVisible = true;
+                }
+                break;
+            }
+        }
+        if not_find{
+            if let Some(buffer_up) = buffer.upgrade() {
+                let mut temp = (*buffer_up).borrow_mut();
+                let texture_ = unsafe{ &(*ENEMY_TEX_PTR)};
+                let mut enemy = Bullet::new(x as f32,-50f32,118u32 / 2u32,144u32 / 2,0f32,2f32,0f64,false,texture_,"enemy");
+
+                enemy.setUpdateFunc(Box::new(|delatime:f32,enemy:&Bullet|{
+                    if enemy.is_visible(){
+                        let t_y = enemy.y();
+                        if t_y  > 536f32  {
+                            unsafe { (*enemy.getRefMut()).isVisible = false;}
+                        }else{
+                            unsafe { (*enemy.getRefMut()).set_y(t_y + enemy.vy);}
+                        }
+                    }
+                }));
+                temp.push(RefCell::new(Box::new(enemy)));
+            }
+        }
+    }
+}
 
 
 fn main() {

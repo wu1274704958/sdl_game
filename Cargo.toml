@@ -5,4 +5,5 @@ authors = ["wws <1274704958@qq.com>"]
 build = "build.rs"
 
 [dependencies]
+rand = "0.5"
 sdl2 = {version = "0.31.0",features = ["gfx","image","unsafe_textures"]}
