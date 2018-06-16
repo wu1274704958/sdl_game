@@ -4,6 +4,7 @@ use ::sdl2::render::WindowCanvas;
 use ::sdl2::rect::Rect;
 use sdl2::event::Event;
 use sdl2::render::Texture;
+use sdl2::rect::Point;
 
 
 pub struct Plane{
@@ -11,6 +12,8 @@ pub struct Plane{
     y:f32,
     h:u32,
     w:u32,
+    center:Point,
+    flip_v:bool,
     pub dst:Option<Rect>,
     texture : Texture,
     pub isVisible : bool,
@@ -20,13 +23,15 @@ pub struct Plane{
 }
 
 impl Plane{
-    pub fn new(x_:f32,y_:f32,w_:u32,h_:u32,te:Texture,tag_:&'static str) -> Plane
+    pub fn new(x_:f32,y_:f32,w_:u32,h_:u32,flip_v_:bool,te:Texture,tag_:&'static str) -> Plane
     {
         let mut p = Plane{
             x:x_,
             y:y_,
             w:w_,
             h:h_,
+            flip_v:flip_v_,
+            center:Point::new(w_ as i32/ 2,h_ as i32 / 2),
             dst:None,
             texture:te,
             isVisible:true,
@@ -72,7 +77,8 @@ impl Drawable for Plane{
 
     fn draw(&self, t: &mut <Self as Drawable>::Target) {
         if self.isVisible{
-            (*t).copy(&(self.texture), None, self.dst);
+            //(*t).copy(&(self.texture), None, self.dst);
+            (*t).copy_ex(&(self.texture), None, self.dst,0f64,self.center,false,self.flip_v);
         }
     }
 }
@@ -119,6 +125,10 @@ pub struct Bullet<'a>{
     y:f32,
     h:u32,
     w:u32,
+    flip_v:bool,
+    center:Point,
+    angle:f64,
+    pub vx:f32,
     pub vy:f32,
     pub dst:Option<Rect>,
     texture : &'a Texture,
@@ -128,13 +138,17 @@ pub struct Bullet<'a>{
 }
 
 impl<'a> Bullet<'a>{
-    pub fn new(x_:f32,y_:f32,w_:u32,h_:u32,vy_:f32,texture_:&'a Texture,tag_:&'static str) ->Bullet<'a>{
+    pub fn new(x_:f32,y_:f32,w_:u32,h_:u32,vx_:f32,vy_:f32,angle_:f64,flip_v_:bool,texture_:&'a Texture,tag_:&'static str) ->Bullet<'a>{
         let mut bullet = Bullet{
             x:x_,
             y:y_,
             w:w_,
             h:h_,
+            vx:vx_,
             vy:vy_,
+            angle:angle_,
+            flip_v:flip_v_,
+            center:Point::new(w_ as i32/ 2,h_ as i32 / 2),
             texture:texture_,
             dst:None,
             isVisible : true,
@@ -181,7 +195,8 @@ impl<'a> Drawable for Bullet<'a>{
 
     fn draw(&self, t: &mut <Self as Drawable>::Target) {
         if self.isVisible {
-             (*t).copy(self.texture, None, self.dst);
+             //(*t).copy(self.texture, None, self.dst);
+            (*t).copy_ex(self.texture,None,self.dst,self.angle,Some(self.center),false,self.flip_v);
         }
     }
 }

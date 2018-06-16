@@ -39,6 +39,8 @@ const H:u32 = 500;
 
 static mut BGY:f32 = 1000f32;
 static mut BULLET_TEX_PTR:*const Texture = 0 as *const Texture;
+static mut ENEMY_TEX_PTR:*const Texture = 0 as *const Texture;
+static mut TEXTURE_CREATE_PTR:*const TextureCreator<WindowContext> = 0 as *const TextureCreator<WindowContext>;
 
 static mut MOUSE_POS:(i32,i32) = (0,0);
 
@@ -56,6 +58,8 @@ pub fn run(png: &Path) {
 
     let mut canvas = window.into_canvas().software().build().unwrap();
     let texture_creator = canvas.texture_creator();
+
+    unsafe { TEXTURE_CREATE_PTR = &texture_creator as *const TextureCreator<WindowContext>; }
 
     let surface = match Surface::from_file(png) {
         Ok(surface) => surface,
@@ -78,13 +82,16 @@ pub fn run(png: &Path) {
     let bullet_texture = create_texture!("resource/bullet.png",texture_creator);
     unsafe {BULLET_TEX_PTR = &bullet_texture as *const Texture;}
 
-    let start_sprite = create_start(&texture_creator,Rc::downgrade(&sprites));
+    let enemy_texture = create_texture!("resource/enemy.png",texture_creator);
+    unsafe {ENEMY_TEX_PTR = &enemy_texture as *const Texture;}
+
+    let start_sprite = create_start(Rc::downgrade(&sprites));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(start_sprite)));
 
-    let bg_sprite = create_bg(&texture_creator);
+    let bg_sprite = create_bg();
     (*sprites).borrow_mut().push(RefCell::new(Box::new(bg_sprite)));
 
-    let plane_player = create_plane(&texture_creator,Rc::downgrade(&sprites),Rc::downgrade(&buffer));
+    let plane_player = create_plane_player(Rc::downgrade(&sprites),Rc::downgrade(&buffer));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(plane_player)));
 
     canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
@@ -148,6 +155,7 @@ pub fn run(png: &Path) {
             Err(e) => { panic!("start_time elapsed Error {}",e) }
         };
         //sleep
+		//println!("{}",delatime);
         if delatime < 16f32{
             sleep_ms(16u32 - delatime as u32);
         }
@@ -155,9 +163,9 @@ pub fn run(png: &Path) {
     println!("end  {}",Rc::strong_count(&sprites));
 }
 
-fn create_start(tc : &TextureCreator<WindowContext>,
-                sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>) -> Sprite
+fn create_start(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>) -> Sprite
 {
+    let tc = unsafe{&(*TEXTURE_CREATE_PTR)};
     let start_texture = create_texture!("resource/start.png",tc);
 
     let dst = Rect::new(((W - START_W) / 2) as i32,((H - START_H) / 2) as i32,START_W as u32,START_H as u32);
@@ -220,8 +228,9 @@ fn create_start(tc : &TextureCreator<WindowContext>,
     start
 }
 
-fn create_bg(tc : &TextureCreator<WindowContext>) ->Sprite
+fn create_bg() ->Sprite
 {
+    let tc = unsafe{&(*TEXTURE_CREATE_PTR)};
     let bg_texture = create_texture!("resource/bg2.png",tc);
     let src = Rect::new(0,1000,W,H);
     let dst = Rect::new(0,0,W,H);
@@ -254,12 +263,13 @@ fn create_bg(tc : &TextureCreator<WindowContext>) ->Sprite
     sprite
 }
 
-fn create_plane(tc : &TextureCreator<WindowContext>,
+fn create_plane_player(
                 sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
                 buffer : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>) -> Plane
 {
+    let tc = unsafe{&(*TEXTURE_CREATE_PTR)};
     let plane_te:Texture = create_texture!("resource/plane.png",tc);
-    let mut plane = Plane::new((W as i32 / 2) as f32,(H as i32 / 2) as f32,94u32 / 3u32,127u32/3u32,plane_te,"plane");
+    let mut plane = Plane::new((W as i32 / 2) as f32,(H as i32 / 2) as f32,94u32 / 3u32,127u32/3u32,false,plane_te,"plane");
     plane.isVisible = false;
 
     plane.setUpdateFunc(Box::new(|delatime:f32,p:&Plane|{
@@ -289,7 +299,7 @@ fn create_plane(tc : &TextureCreator<WindowContext>,
                                         not_find = false;
                                         unsafe {
                                             let temp_bu: &Ref<Box<Bullet>> = std::mem::transmute(&sp_temp);
-                                            (*(temp_bu.getRefMut())).set_pos((s.x() as f32,s.y() as f32 - 5.0f32));
+                                            (*(temp_bu.getRefMut())).set_pos((s.x() as f32,s.y() as f32 - 25.0f32));
                                             (*(temp_bu.getRefMut())).isVisible = true;
                                         }
                                         break;
@@ -298,7 +308,7 @@ fn create_plane(tc : &TextureCreator<WindowContext>,
                                 if not_find{
                                     if let Some(buffer_up) = buffer.upgrade() {
                                         let mut temp = (*buffer_up).borrow_mut();
-                                        let bullet = create_bullet_player(s.x() as f32,s.y() as f32 - 5.0f32);
+                                        let bullet = create_bullet_player(s.x() as f32,s.y() as f32 - 25.0f32);
                                         temp.push(RefCell::new(Box::new(bullet)));
                                     }
                                 }
@@ -316,7 +326,7 @@ fn create_plane(tc : &TextureCreator<WindowContext>,
 
 fn create_bullet_player<'a>(x:f32,y:f32) -> Bullet<'a>{
     let texture_ = unsafe{ &(*BULLET_TEX_PTR)};
-    let mut bullet = Bullet::new(x,y,10,16,-5f32,texture_,"player_bullet");
+    let mut bullet = Bullet::new(x,y,10,16,0f32,-10f32,0f64,false,texture_,"player_bullet");
     bullet.setUpdateFunc(Box::new(
        |delatime:f32,b:&Bullet|{
            if b.is_visible(){
@@ -331,6 +341,8 @@ fn create_bullet_player<'a>(x:f32,y:f32) -> Bullet<'a>{
     ));
     bullet
 }
+
+fn create_plane_enemy(){}
 
 
 fn main() {
