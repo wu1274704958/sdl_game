@@ -289,7 +289,7 @@ fn create_plane_player(
             unsafe { (*p.getRefMut()).set_pos((p.x() + vec.0,p.y() + vec.1)); }
             let n1 = unsafe{BGY as u32} % 30;
             if n1 == 0{
-                create_plane_enemy(&sps_clone,&buffer_clone);
+                create_plane_enemy(Weak::clone(&sps_clone),Weak::clone(&buffer_clone));
             }
         }
     }));
@@ -300,7 +300,7 @@ fn create_plane_player(
                 if s.is_visible(){
                     match mouse_btn {
                         MouseButton::Left =>{
-                            create_bullet_player(s.x(),s.y(),&sps,&buffer);
+                            create_bullet_player(s.x(),s.y(),Weak::clone(&sps),Weak::clone(&buffer));
                         },
                         _ =>{}
                     }
@@ -313,8 +313,8 @@ fn create_plane_player(
 }
 
 fn create_bullet_player(x:f32,y:f32,
-                            sps : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
-                            buffer : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>){
+                            sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
+                            buffer : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>){
 
     if let Some(up_sps) = sps.upgrade(){
         let temp = up_sps.borrow();
@@ -357,8 +357,8 @@ fn create_bullet_player(x:f32,y:f32,
     }
 }
 
-fn create_plane_enemy(sps : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
-                      buffer : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>){
+fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
+                      buffer : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>){
     let mut rng = thread_rng();
     let x = rng.next_u32() % 300 + 50;
 
@@ -384,7 +384,7 @@ fn create_plane_enemy(sps : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanva
                 let texture_ = unsafe{ &(*ENEMY_TEX_PTR)};
                 let mut enemy = Bullet::new(x as f32,-50f32,118u32 / 2u32,144u32 / 2,0f32,2f32,0f64,false,texture_,"enemy");
 
-                enemy.setUpdateFunc(Box::new(|delatime:f32,enemy:&Bullet|{
+                enemy.setUpdateFunc(Box::new(move |delatime:f32,enemy:&Bullet|{
                     if enemy.is_visible(){
                         let t_y = enemy.y();
                         if t_y  > 536f32  {
@@ -392,6 +392,30 @@ fn create_plane_enemy(sps : &Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanva
                         }else{
                             unsafe { (*enemy.getRefMut()).set_y(t_y + enemy.vy);}
                         }
+
+                        if let Some(up_sps) = sps.upgrade() {
+                            let ref_vec = up_sps.borrow();
+                            ref_vec.iter().for_each(|it|{
+                                let ref_it = it.borrow();
+                                if ref_it.is_visible() && ref_it.tag() == "player_bullet"{
+                                    unsafe {
+                                        let temp:&Ref<Box<Bullet>> = std::mem::transmute(&ref_it);
+                                        if enemy.intersection(&(temp.dst)) {
+                                            (*temp.getRefMut()).isVisible = false;
+                                            (*enemy.getRefMut()).isVisible = false;
+                                        }
+                                    }
+                                }else if ref_it.tag() == "plane"{
+                                    unsafe {
+                                        let temp:&Ref<Box<Plane>> = std::mem::transmute(&ref_it);
+                                        if enemy.intersection(&(temp.dst)) {
+                                            (*temp.getRefMut()).isVisible = false;
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
                     }
                 }));
                 temp.push(RefCell::new(Box::new(enemy)));

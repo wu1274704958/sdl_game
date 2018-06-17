@@ -188,6 +188,15 @@ impl<'a> Bullet<'a>{
         self.y = y_;
         self.calc_dst();
     }
+    pub fn intersection(&self,ortho:&Option<Rect>) ->bool{
+        let mut res = false;
+        if let Some(ref r) = self.dst{
+            if let Some(ortho_r) = *ortho{
+                res = (*r).has_intersection(ortho_r);
+            }
+        }
+        res
+    }
 }
 
 impl<'a> Drawable for Bullet<'a>{
