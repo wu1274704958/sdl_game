@@ -127,7 +127,7 @@ pub struct Bullet<'a>{
     w:u32,
     flip_v:bool,
     center:Point,
-    angle:f64,
+    pub angle:f64,
     pub vx:f32,
     pub vy:f32,
     pub dst:Option<Rect>,
@@ -188,6 +188,7 @@ impl<'a> Bullet<'a>{
         self.y = y_;
         self.calc_dst();
     }
+
     pub fn intersection(&self,ortho:&Option<Rect>) ->bool{
         let mut res = false;
         if let Some(ref r) = self.dst{
