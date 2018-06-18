@@ -56,6 +56,7 @@ pub fn run(png: &Path) {
     let video_subsystem = sdl_context.video().unwrap();
     let _image_context = sdl2::image::init(INIT_PNG | INIT_JPG).unwrap();
     let window = video_subsystem.window("sdl_game", W, H)
+        .opengl()
         .position_centered()
         .build()
         .unwrap();
@@ -160,9 +161,10 @@ pub fn run(png: &Path) {
         };
         //sleep
 		//println!("{}",delatime);
-        if delatime < 15f32{
-            sleep_ms(15u32 - delatime as u32);
-        }
+        delatime = if delatime < 9f32{
+            sleep_ms(9u32 - delatime as u32);
+            9f32
+        }else{ println!("not sleep!!!");delatime };
     }
     println!("end  {}",Rc::strong_count(&sprites));
 }
@@ -254,7 +256,7 @@ fn create_bg() ->Sprite
                 if BGY <= 0.0f32{
                     BGY = 1000f32;
                 }else{
-                    BGY -= 0.2f32 //* delatime;
+                    BGY -= 0.02f32 * delatime;
                 }
 
                 if let Some(ref mut rect) = (*ptr).src{
@@ -283,11 +285,11 @@ fn create_plane_player(
         if p.is_visible(){
             let mut vec:(f32,f32) = unsafe { (MOUSE_POS.0 as f32 - p.x(),MOUSE_POS.1 as f32 - p.y()) };
             if vec.0.abs() > 1f32 || vec.1.abs() > 1f32 {
-                vec.0 *= 0.2;
-                vec.1 *= 0.2;
+                vec.0 *= (0.02f32 * delatime);
+                vec.1 *= (0.02f32 * delatime);
             }
             unsafe { (*p.getRefMut()).set_pos((p.x() + vec.0,p.y() + vec.1)); }
-            let n1 = rand::random::<u32>() % 30;
+            let n1 = rand::random::<u32>() % 50;
             if n1 == 0{
                 create_plane_enemy(Weak::clone(&sps_clone),Weak::clone(&buffer_clone));
             }
@@ -337,7 +339,7 @@ fn create_bullet_player(x:f32,y:f32,
                 let mut temp = (*buffer_up).borrow_mut();
 
                 let texture_ = unsafe{ &(*BULLET_TEX_PTR)};
-                let mut bullet = Bullet::new(x,y,10,16,0f32,-10f32,0f64,false,texture_,"player_bullet");
+                let mut bullet = Bullet::new(x,y,10,16,0f32,-0.6f32,0f64,false,texture_,"player_bullet");
                 bullet.setUpdateFunc(Box::new(
                     |delatime:f32,b:&Bullet|{
                         if b.is_visible(){
@@ -345,7 +347,7 @@ fn create_bullet_player(x:f32,y:f32,
                             if t_y  < 0f32 {
                                 unsafe { (*b.getRefMut()).isVisible = false;}
                             }else{
-                                unsafe { (*b.getRefMut()).set_y(t_y + b.vy);}
+                                unsafe { (*b.getRefMut()).set_y(t_y + (b.vy * delatime));}
                             }
                         }
                     }
@@ -384,7 +386,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                 let texture_ = unsafe{ &(*ENEMY_TEX_PTR)};
                 let mut rng = rand::thread_rng();
                 let mut enemy = Bullet::new(x as f32,-50f32,118u32 / 2u32,144u32 / 2,
-                                            0f32,(rng.next_u32() % 50 + 5) as f32 * 0.1f32 ,
+                                            0f32,(rng.next_u32() % 30 + 5) as f32 * 0.012f32 ,
                                             0f64,false,texture_,"enemy");
 
                 enemy.setUpdateFunc(Box::new(move |delatime:f32,enemy:&Bullet|{
@@ -393,7 +395,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                         if t_y  > 536f32  {
                             unsafe { (*enemy.getRefMut()).isVisible = false;}
                         }else{
-                            unsafe { (*enemy.getRefMut()).set_y(t_y + enemy.vy);}
+                            unsafe { (*enemy.getRefMut()).set_y(t_y + enemy.vy * delatime);}
                         }
                         let mut rng = thread_rng();
 
@@ -402,7 +404,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                             let ref_vec = up_sps.borrow();
 
 
-                            if rng.next_u32() % 100 == 0{
+                            if  ref_vec[2].borrow().is_visible() && rng.next_u32() % 100 == 0{
                                 let enemy_pos = (enemy.x(),enemy.y());
                                 let player_pos = unsafe{
                                     let temp:&Ref<Box<Plane>> = std::mem::transmute(&(ref_vec[2].borrow()));
@@ -410,7 +412,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                                 };
 
                                 let v_pos = {
-                                    ((player_pos.0 - enemy_pos.0) * 0.01f32 , (player_pos.1 - enemy_pos.1) * 0.01f32)
+                                    ((player_pos.0 - enemy_pos.0) * 0.001f32 , (player_pos.1 - enemy_pos.1) * 0.001f32)
                                 };
 
                                 let angle = calc_angle(player_pos,enemy_pos);
@@ -497,7 +499,7 @@ fn create_bullet_enemy( pos:(f32,f32),
                                 unsafe { (*b.getRefMut()).isVisible = false;}
                             }else{
                                 unsafe {
-                                    (*b.getRefMut()).set_pos((t_x + b.vx,t_y + b.vy));
+                                    (*b.getRefMut()).set_pos((t_x + b.vx * delatime ,t_y + b.vy * delatime));
                                 }
                             }
                             if let Some(up_sps) = sps.upgrade() {
@@ -542,6 +544,15 @@ fn create_bullet_enemy( pos:(f32,f32),
 }
 
 fn calc_angle(p1:(f32,f32),p2:(f32,f32)) -> f32{
+
+    if p2.0==p1.0&&p2.1>p1.1 {
+        return 180f32;
+    }else if p2.0>p1.0&&p2.1==p1.1{
+        return 90f32;
+    }else if p2.0<p1.0&&p2.1==p1.1{
+        return 270f32;
+    }
+
     let x = (p1.0 - p2.0).abs();
     let y = (p1.1 - p2.1).abs();
     let z = (x.powi(2) + y.powi(2)).sqrt();
@@ -551,25 +562,9 @@ fn calc_angle(p1:(f32,f32),p2:(f32,f32)) -> f32{
 
     if p2.0 > p1.0 && p2.1 > p1.1{
         angle = 180f32 - angle;
-    }
-
-    if p2.0==p1.0&&p2.1>p1.1 {
-        angle = 180f32;
-    }
-
-    if p2.0>p1.0&&p2.1==p1.1{
-        angle = 90f32;
-    }
-
-    if p2.0<p1.0&&p2.1>p1.1{
+    }else if p2.0<p1.0&&p2.1>p1.1{
         angle = 180f32 + angle;
-    }
-
-    if p2.0<p1.0&&p2.1==p1.1{
-        angle = 270f32;
-    }
-
-    if p2.0<p1.0&&p2.1<p1.1{
+    }else if p2.0<p1.0&&p2.1<p1.1{
         angle = 360f32 - angle;
     }
     angle
