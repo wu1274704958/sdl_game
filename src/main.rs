@@ -44,6 +44,7 @@ const H:u32 = 500;
 static mut BGY:f32 = 1000f32;
 static mut BULLET_TEX_PTR:*const Texture = 0 as *const Texture;
 static mut ENEMY_TEX_PTR:*const Texture = 0 as *const Texture;
+static mut BOOM_TEX_PTR:*const Texture = 0 as *const Texture;
 static mut TEXTURE_CREATE_PTR:*const TextureCreator<WindowContext> = 0 as *const TextureCreator<WindowContext>;
 
 static mut MOUSE_POS:(i32,i32) = (0,0);
@@ -89,6 +90,9 @@ pub fn run(png: &Path) {
 
     let enemy_texture = create_texture!("resource/enemy.png",texture_creator);
     unsafe {ENEMY_TEX_PTR = &enemy_texture as *const Texture;}
+
+    let boom_texture = create_texture!("resource/explosion.png",texture_creator);
+    unsafe {BOOM_TEX_PTR = &boom_texture as *const Texture;}
 
     let start_sprite = create_start(Rc::downgrade(&sprites));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(start_sprite)));
@@ -289,7 +293,7 @@ fn create_plane_player(
                 vec.1 *= (0.02f32 * delatime);
             }
             unsafe { (*p.getRefMut()).set_pos((p.x() + vec.0,p.y() + vec.1)); }
-            let n1 = rand::random::<u32>() % 50;
+            let n1 = rand::random::<u32>() % 80;
             if n1 == 0{
                 create_plane_enemy(Weak::clone(&sps_clone),Weak::clone(&buffer_clone));
             }
@@ -321,7 +325,7 @@ fn create_bullet_player(x:f32,y:f32,
     if let Some(up_sps) = sps.upgrade(){
         let temp = up_sps.borrow();
         let mut not_find = true;
-        for i in 0..temp.len(){
+        for i in 3..temp.len(){
             let sp_temp = temp[i].borrow();
             if sp_temp.tag() == "player_bullet" && !sp_temp.is_visible(){
                 //println!("find one");
@@ -367,7 +371,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
     if let Some(up_sps) = sps.upgrade(){
         let temp = up_sps.borrow();
         let mut not_find = true;
-        for i in 0..temp.len(){
+        for i in 3..temp.len(){
             let sp_temp = temp[i].borrow();
             if sp_temp.tag() == "enemy" && !sp_temp.is_visible(){
                 //println!("find one");
@@ -404,7 +408,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                             let ref_vec = up_sps.borrow();
 
 
-                            if  ref_vec[2].borrow().is_visible() && rng.next_u32() % 100 == 0{
+                            if  ref_vec[2].borrow().is_visible() && rng.next_u32() % 200 == 0{
                                 let enemy_pos = (enemy.x(),enemy.y());
                                 let player_pos = unsafe{
                                     let temp:&Ref<Box<Plane>> = std::mem::transmute(&(ref_vec[2].borrow()));
@@ -430,6 +434,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                                             if enemy.intersection(&(temp.dst)) {
                                                 (*temp.getRefMut()).isVisible = false;
                                                 (*enemy.getRefMut()).isVisible = false;
+                                                create_boom(enemy.x(),enemy.y(),64u32,64u32,Weak::clone(&sps),Weak::clone(&buffer));
                                             }
                                         }
                                     }else if ref_it.tag() == "plane"{
@@ -437,6 +442,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                                             let temp:&Ref<Box<Plane>> = std::mem::transmute(&ref_it);
                                             if enemy.intersection(&(temp.dst)) {
                                                 (*temp.getRefMut()).isVisible = false;
+                                                create_boom(temp.x(),temp.y(),32u32,32u32,Weak::clone(&sps),Weak::clone(&buffer));
                                                 {
                                                     let temp:&Ref<Box<Sprite>> = std::mem::transmute(&(ref_vec[0].borrow()));
                                                     (*temp.getRefMut()).isVisible = true;
@@ -513,6 +519,7 @@ fn create_bullet_enemy( pos:(f32,f32),
                                                 if b.intersection(&(temp.dst)) {
                                                     (*temp.getRefMut()).isVisible = false;
                                                     (*b.getRefMut()).isVisible = false;
+                                                    create_boom(b.x(),b.y(),32u32,32u32,Weak::clone(&sps),Weak::clone(&buffer));
                                                 }
                                             }
                                         }else if ref_it.tag() == "plane"{
@@ -520,6 +527,7 @@ fn create_bullet_enemy( pos:(f32,f32),
                                                 let temp:&Ref<Box<Plane>> = std::mem::transmute(&ref_it);
                                                 if b.intersection(&(temp.dst)) {
                                                     (*temp.getRefMut()).isVisible = false;
+                                                    create_boom(temp.x(),temp.y(),32u32,32u32,Weak::clone(&sps),Weak::clone(&buffer));
                                                     {
                                                         let temp:&Ref<Box<Sprite>> = std::mem::transmute(&(ref_vec[0].borrow()));
                                                         (*temp.getRefMut()).isVisible = true;
@@ -538,6 +546,66 @@ fn create_bullet_enemy( pos:(f32,f32),
                     }
                 ));
                 temp.push(RefCell::new(Box::new(bullet)));
+            }
+        }
+    }
+}
+
+fn create_boom(
+                x:f32,y:f32,
+                w:u32,h:u32,
+                sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>,
+                buffer : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>
+){
+    if let Some(up_sps) = sps.upgrade(){
+        let temp = up_sps.borrow();
+        let mut not_find = true;
+        for i in 3..temp.len(){
+            let sp_temp = temp[i].borrow();
+            if sp_temp.tag() == "boom" && !sp_temp.is_visible(){
+                //println!("find one");
+                not_find = false;
+                unsafe {
+                    let temp_bu: &Ref<Box<Bullet>> = std::mem::transmute(&sp_temp);
+                    (*temp_bu.getRefMut()).set_dst((x,y,w,h));
+                    (*temp_bu.getRefMut()).isVisible = true;
+                }
+                break;
+            }
+        }
+        if not_find{
+            if let Some(buffer_up) = buffer.upgrade() {
+                let mut temp = (*buffer_up).borrow_mut();
+
+                let texture_ = unsafe{ &(*BOOM_TEX_PTR)};
+                let mut boom = Bullet::new(x,y,w,h,0f32,0f32,0f64,false,texture_,"boom");
+                boom.src = Some(Rect::new(0i32,0i32,64u32,64u32));
+                boom.setUpdateFunc(Box::new(
+                    |delatime:f32,b:&Bullet|{
+                        if b.is_visible(){
+                            if b.vx >= 30f32{
+                                unsafe {
+                                    (*b.getRefMut()).vx = 0f32;
+
+                                    match  (*b.getRefMut()).src {
+                                        Some(ref mut n) =>{
+                                            let temp_x = n.x();
+                                            if temp_x >= 896i32{
+                                                n.set_x(0i32  );
+                                                (*b.getRefMut()).isVisible = false;
+                                            }else{
+                                                n.set_x(temp_x + 64i32);
+                                            }
+                                        },
+                                        _ =>{}
+                                    }
+                                }
+                            }
+                            unsafe { (*b.getRefMut()).vx += delatime; }
+                        }
+                    }
+                ));
+                temp.push(RefCell::new(Box::new(boom)));
             }
         }
     }

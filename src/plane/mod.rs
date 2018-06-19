@@ -130,6 +130,7 @@ pub struct Bullet<'a>{
     pub angle:f64,
     pub vx:f32,
     pub vy:f32,
+    pub src:Option<Rect>,
     pub dst:Option<Rect>,
     texture : &'a Texture,
     pub isVisible : bool,
@@ -150,6 +151,7 @@ impl<'a> Bullet<'a>{
             flip_v:flip_v_,
             center:Point::new(w_ as i32/ 2,h_ as i32 / 2),
             texture:texture_,
+            src:None,
             dst:None,
             isVisible : true,
             tag:tag_,
@@ -172,6 +174,13 @@ impl<'a> Bullet<'a>{
     pub fn set_pos(&mut self,p:(f32,f32)){
         self.x = p.0;
         self.y = p.1;
+        self.calc_dst();
+    }
+    pub fn set_dst(&mut self,p:(f32,f32,u32,u32)){
+        self.x = p.0;
+        self.y = p.1;
+        self.w = p.2;
+        self.h = p.3;
         self.calc_dst();
     }
     pub fn x(&self) -> f32
@@ -206,7 +215,7 @@ impl<'a> Drawable for Bullet<'a>{
     fn draw(&self, t: &mut <Self as Drawable>::Target) {
         if self.isVisible {
              //(*t).copy(self.texture, None, self.dst);
-            (*t).copy_ex(self.texture,None,self.dst,self.angle,Some(self.center),false,self.flip_v);
+            (*t).copy_ex(self.texture,self.src,self.dst,self.angle,Some(self.center),false,self.flip_v);
         }
     }
 }
