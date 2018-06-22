@@ -395,12 +395,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
 
                 enemy.setUpdateFunc(Box::new(move |delatime:f32,enemy:&Bullet|{
                     if enemy.is_visible(){
-                        let t_y = enemy.y();
-                        if t_y  > 536f32  {
-                            unsafe { (*enemy.getRefMut()).isVisible = false;}
-                        }else{
-                            unsafe { (*enemy.getRefMut()).set_y(t_y + enemy.vy * delatime);}
-                        }
+                        
                         let mut rng = thread_rng();
 
 
@@ -457,6 +452,12 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                                 }
                             });
                         }
+						let t_y = enemy.y();
+                        if t_y  > 536f32  {
+                            unsafe { (*enemy.getRefMut()).isVisible = false;}
+                        }else{
+                            unsafe { (*enemy.getRefMut()).set_y(t_y + enemy.vy * delatime);}
+                        }
                     }
                 }));
                 temp.push(RefCell::new(Box::new(enemy)));
@@ -499,15 +500,7 @@ fn create_bullet_enemy( pos:(f32,f32),
                 bullet.setUpdateFunc(Box::new(
                     move |delatime:f32,b:&Bullet|{
                         if b.is_visible(){
-                            let t_y = b.y();
-                            let t_x = b.x();
-                            if t_y  < 0f32 || t_y > (H + 8) as f32 || t_x < 0f32 || t_x > (W + 5) as f32 {
-                                unsafe { (*b.getRefMut()).isVisible = false;}
-                            }else{
-                                unsafe {
-                                    (*b.getRefMut()).set_pos((t_x + b.vx * delatime ,t_y + b.vy * delatime));
-                                }
-                            }
+                            
                             if let Some(up_sps) = sps.upgrade() {
                                 let ref_vec = up_sps.borrow();
                                 ref_vec.iter().for_each(|it|{
@@ -541,6 +534,15 @@ fn create_bullet_enemy( pos:(f32,f32),
                                         }
                                     }
                                 })
+                            }
+							let t_y = b.y();
+                            let t_x = b.x();
+                            if t_y  < 0f32 || t_y > (H + 8) as f32 || t_x < 0f32 || t_x > (W + 5) as f32 {
+                                unsafe { (*b.getRefMut()).isVisible = false;}
+                            }else{
+                                unsafe {
+                                    (*b.getRefMut()).set_pos((t_x + b.vx * delatime ,t_y + b.vy * delatime));
+                                }
                             }
                         }
                     }
