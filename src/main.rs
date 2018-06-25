@@ -49,6 +49,9 @@ static mut TEXTURE_CREATE_PTR:*const TextureCreator<WindowContext> = 0 as *const
 
 static mut MOUSE_POS:(i32,i32) = (0,0);
 
+static mut IS_SHUT:bool = false;
+static mut SHUT_N:u8 = 0;
+
 pub fn run(png: &Path) {
     let sprites : Rc<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>> = Rc::new(RefCell::new(Vec::new()));
     let buffer : Rc<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>> = Rc::new(RefCell::new(Vec::new()));
@@ -94,11 +97,13 @@ pub fn run(png: &Path) {
     let boom_texture = create_texture!("resource/explosion.png",texture_creator);
     unsafe {BOOM_TEX_PTR = &boom_texture as *const Texture;}
 
-    let start_sprite = create_start(Rc::downgrade(&sprites));
-    (*sprites).borrow_mut().push(RefCell::new(Box::new(start_sprite)));
+
 
     let bg_sprite = create_bg();
     (*sprites).borrow_mut().push(RefCell::new(Box::new(bg_sprite)));
+
+    let start_sprite = create_start(Rc::downgrade(&sprites));
+    (*sprites).borrow_mut().push(RefCell::new(Box::new(start_sprite)));
 
     let plane_player = create_plane_player(Rc::downgrade(&sprites),Rc::downgrade(&buffer));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(plane_player)));
@@ -108,7 +113,7 @@ pub fn run(png: &Path) {
 
     let mut events = sdl_context.event_pump().unwrap();
 
-    let mut delatime = 16f32;
+    let mut delatime = 9f32;
 
     'mainloop: loop {
         let start_time = SystemTime::now();
@@ -198,8 +203,8 @@ fn create_start(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>
             Event::MouseButtonUp {mouse_btn,..} => {
                 match mouse_btn {
                     MouseButton::Left => {
-                        //let dst = Rect::new(((W - START_W) / 2) as i32,((H - START_H) / 2) as i32,START_W as u32,START_H as u32);
-                        //unsafe {(*s.getRefMut()).dst = Some(dst);}
+                        let dst = Rect::new(((W - START_W) / 2) as i32,((H - START_H) / 2) as i32,START_W as u32,START_H as u32);
+                        unsafe {(*s.getRefMut()).dst = Some(dst);}
                         unsafe { (*s.getRefMut()).isVisible = false; }
                         if let Some(sp_up) = sps.upgrade(){
                             let temp = (*sp_up).borrow();
@@ -212,12 +217,6 @@ fn create_start(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>
                                 }*/
                                 let tag = it.borrow().tag();
                                 match tag {
-                                    "bg" => {
-                                        unsafe {
-                                            let temp_bg: &RefCell<Box<Sprite>> = std::mem::transmute(it);
-                                            temp_bg.borrow_mut().isVisible = true;
-                                        }
-                                    },
                                     "plane" => {
                                         unsafe {
                                             let temp_plane: &RefCell<Box<Plane>> = std::mem::transmute(it);
@@ -246,7 +245,6 @@ fn create_bg() ->Sprite
     let dst = Rect::new(0,0,W,H);
     let mut sprite = Sprite::new(Some(src),Some(dst),bg_texture,"bg");
 
-    sprite.isVisible = false;
     sprite.setUpdateFunc(Box::new(|delatime:f32,s:&Sprite|{
         if s.is_visible(){
             let ptr = s.getRefMut();
@@ -293,10 +291,23 @@ fn create_plane_player(
                 vec.1 *= (0.02f32 * delatime);
             }
             unsafe { (*p.getRefMut()).set_pos((p.x() + vec.0,p.y() + vec.1)); }
-            let n1 = rand::random::<u32>() % 80;
+            let n1 = rand::random::<u32>() % 30;
             if n1 == 0{
                 create_plane_enemy(Weak::clone(&sps_clone),Weak::clone(&buffer_clone));
             }
+            if unsafe{IS_SHUT && SHUT_N == 8u8 } {
+
+                unsafe {
+                    create_bullet_player(MOUSE_POS.0 as f32,MOUSE_POS.1 as f32,Weak::clone(&sps),Weak::clone(&buffer));
+                }
+            }
+           unsafe {
+               if SHUT_N == 8u8{
+                   SHUT_N = 0u8;
+               }else{
+                   SHUT_N += 1u8;
+               }
+           }
         }
     }));
 
@@ -306,7 +317,17 @@ fn create_plane_player(
                 if s.is_visible(){
                     match mouse_btn {
                         MouseButton::Left =>{
-                            create_bullet_player(s.x(),s.y(),Weak::clone(&sps),Weak::clone(&buffer));
+                            unsafe {IS_SHUT = true;}
+                        },
+                        _ =>{}
+                    }
+                }
+            },
+            Event::MouseButtonUp {mouse_btn,..} =>{
+                if s.is_visible(){
+                    match mouse_btn {
+                        MouseButton::Left =>{
+                            unsafe {IS_SHUT = false;}
                         },
                         _ =>{}
                     }
@@ -390,7 +411,7 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                 let texture_ = unsafe{ &(*ENEMY_TEX_PTR)};
                 let mut rng = rand::thread_rng();
                 let mut enemy = Bullet::new(x as f32,-50f32,118u32 / 2u32,144u32 / 2,
-                                            0f32,(rng.next_u32() % 30 + 5) as f32 * 0.012f32 ,
+                                            0f32,(rng.next_u32() % 20 + 5) as f32 * 0.012f32 ,
                                             0f64,false,texture_,"enemy");
 
                 enemy.setUpdateFunc(Box::new(move |delatime:f32,enemy:&Bullet|{
@@ -438,13 +459,10 @@ fn create_plane_enemy(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas
                                             if enemy.intersection(&(temp.dst)) {
                                                 (*temp.getRefMut()).isVisible = false;
                                                 create_boom(temp.x(),temp.y(),32u32,32u32,Weak::clone(&sps),Weak::clone(&buffer));
-                                                {
-                                                    let temp:&Ref<Box<Sprite>> = std::mem::transmute(&(ref_vec[0].borrow()));
-                                                    (*temp.getRefMut()).isVisible = true;
-                                                }
+
                                                 {
                                                     let temp:&Ref<Box<Sprite>> = std::mem::transmute(&(ref_vec[1].borrow()));
-                                                    (*temp.getRefMut()).isVisible = false;
+                                                    (*temp.getRefMut()).isVisible = true;
                                                 }
                                             }
                                         }
@@ -521,13 +539,10 @@ fn create_bullet_enemy( pos:(f32,f32),
                                                 if b.intersection(&(temp.dst)) {
                                                     (*temp.getRefMut()).isVisible = false;
                                                     create_boom(temp.x(),temp.y(),32u32,32u32,Weak::clone(&sps),Weak::clone(&buffer));
-                                                    {
-                                                        let temp:&Ref<Box<Sprite>> = std::mem::transmute(&(ref_vec[0].borrow()));
-                                                        (*temp.getRefMut()).isVisible = true;
-                                                    }
+
                                                     {
                                                         let temp:&Ref<Box<Sprite>> = std::mem::transmute(&(ref_vec[1].borrow()));
-                                                        (*temp.getRefMut()).isVisible = false;
+                                                        (*temp.getRefMut()).isVisible = true;
                                                     }
                                                 }
                                             }
