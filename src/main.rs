@@ -19,7 +19,7 @@ use sdl2::pixels;
 use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::gfx::rotozoom::RotozoomSurface;
 use sdl2::render::WindowCanvas;
-use sdl2::render::{Texture,TextureCreator};
+use sdl2::render::{Texture,TextureCreator,BlendMode};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::vec::Vec;
@@ -108,13 +108,13 @@ pub fn run(png: &Path) {
     let plane_player = create_plane_player(Rc::downgrade(&sprites),Rc::downgrade(&buffer));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(plane_player)));
 
-    canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
+    canvas.set_draw_color(Color::RGBA(0, 0, 0, 50));
 
 
     let mut events = sdl_context.event_pump().unwrap();
 
     let mut delatime = 9f32;
-
+    canvas.set_blend_mode(BlendMode::Blend);
     'mainloop: loop {
         let start_time = SystemTime::now();
 
@@ -135,7 +135,8 @@ pub fn run(png: &Path) {
                 }
             }
 
-            canvas.clear();
+            //canvas.clear();
+            canvas.fill_rect(Rect::new(0,0,W,H));
 
             for i in 0..temp.len() {
                 if temp[i].borrow().is_visible() {
@@ -244,7 +245,7 @@ fn create_bg() ->Sprite
     let src = Rect::new(0,1000,W,H);
     let dst = Rect::new(0,0,W,H);
     let mut sprite = Sprite::new(Some(src),Some(dst),bg_texture,"bg");
-
+    sprite.isVisible = false;
     sprite.setUpdateFunc(Box::new(|delatime:f32,s:&Sprite|{
         if s.is_visible(){
             let ptr = s.getRefMut();
