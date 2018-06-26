@@ -108,7 +108,7 @@ pub fn run(png: &Path) {
     let plane_player = create_plane_player(Rc::downgrade(&sprites),Rc::downgrade(&buffer));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(plane_player)));
 
-    canvas.set_draw_color(Color::RGBA(0, 0, 0, 50));
+    canvas.set_draw_color(Color::RGBA(0, 0, 0, 20));
 
 
     let mut events = sdl_context.event_pump().unwrap();
@@ -241,11 +241,11 @@ fn create_start(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>
 fn create_bg() ->Sprite
 {
     let tc = unsafe{&(*TEXTURE_CREATE_PTR)};
-    let bg_texture = create_texture!("resource/bg2.png",tc);
+    let bg_texture = create_texture!("resource/bg3.png",tc);
     let src = Rect::new(0,1000,W,H);
     let dst = Rect::new(0,0,W,H);
     let mut sprite = Sprite::new(Some(src),Some(dst),bg_texture,"bg");
-    sprite.isVisible = false;
+    //sprite.isVisible = false;
     sprite.setUpdateFunc(Box::new(|delatime:f32,s:&Sprite|{
         if s.is_visible(){
             let ptr = s.getRefMut();
@@ -259,7 +259,7 @@ fn create_bg() ->Sprite
                 if BGY <= 0.0f32{
                     BGY = 1000f32;
                 }else{
-                    BGY -= 0.02f32 * delatime;
+                    BGY -= 0.07f32 * delatime;
                 }
 
                 if let Some(ref mut rect) = (*ptr).src{
