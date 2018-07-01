@@ -108,13 +108,13 @@ pub fn run(png: &Path) {
     let plane_player = create_plane_player(Rc::downgrade(&sprites),Rc::downgrade(&buffer));
     (*sprites).borrow_mut().push(RefCell::new(Box::new(plane_player)));
 
-    canvas.set_draw_color(Color::RGBA(0, 0, 0, 20));
+    canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
 
 
     let mut events = sdl_context.event_pump().unwrap();
 
     let mut delatime = 9f32;
-    canvas.set_blend_mode(BlendMode::Blend);
+    //canvas.set_blend_mode(BlendMode::Blend);
     'mainloop: loop {
         let start_time = SystemTime::now();
 
@@ -135,8 +135,8 @@ pub fn run(png: &Path) {
                 }
             }
 
-            //canvas.clear();
-            canvas.fill_rect(Rect::new(0,0,W,H));
+            canvas.clear();
+            //canvas.fill_rect(Rect::new(0,0,W,H));
 
             for i in 0..temp.len() {
                 if temp[i].borrow().is_visible() {
@@ -241,7 +241,7 @@ fn create_start(sps : Weak<RefCell<Vec<RefCell<Box<DH <Target=WindowCanvas>>>>>>
 fn create_bg() ->Sprite
 {
     let tc = unsafe{&(*TEXTURE_CREATE_PTR)};
-    let bg_texture = create_texture!("resource/bg3.png",tc);
+    let bg_texture = create_texture!("resource/bg2.png",tc);
     let src = Rect::new(0,1000,W,H);
     let dst = Rect::new(0,0,W,H);
     let mut sprite = Sprite::new(Some(src),Some(dst),bg_texture,"bg");
