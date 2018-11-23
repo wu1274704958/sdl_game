@@ -5,7 +5,6 @@ extern crate rand;
 use rand::thread_rng;
 use rand::RngCore;
 
-use std::env;
 use std::path::Path;
 use sdl2::event::Event;
 use sdl2::image::{LoadSurface, INIT_PNG, INIT_JPG};
@@ -15,23 +14,21 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::surface::Surface;
 use sdl2::mouse::MouseButton;
-use sdl2::pixels;
-use sdl2::gfx::primitives::DrawRenderer;
 use sdl2::gfx::rotozoom::RotozoomSurface;
 use sdl2::render::WindowCanvas;
-use sdl2::render::{Texture,TextureCreator,BlendMode};
+use sdl2::render::{Texture,TextureCreator};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::vec::Vec;
 use std::rc::Weak;
 use std::time::SystemTime;
-use std::thread::sleep_ms;
+use std::thread::sleep;
 use sdl2::video::WindowContext;
 use sdl_test::plane::Bullet;
+use std::time::Duration;
 
 
-
-use sdl_test::sprite::{ Sprite , Drawable,EventHandle,BV,DH,HasTag};
+use sdl_test::sprite::{ Sprite,BV,DH};
 use sdl_test::plane::Plane;
 use std::cell::Ref;
 
@@ -172,7 +169,7 @@ pub fn run(png: &Path) {
         //sleep
 		//println!("{}",delatime);
         delatime = if delatime < 9f32{
-            sleep_ms(9u32 - delatime as u32);
+            sleep(Duration::from_millis(9u64 - delatime as u64));
             9f32
         }else{ println!("not sleep!!!");delatime };
     }
@@ -249,11 +246,6 @@ fn create_bg() ->Sprite
     sprite.setUpdateFunc(Box::new(|delatime:f32,s:&Sprite|{
         if s.is_visible(){
             let ptr = s.getRefMut();
-            let t_y:i32 = if let Some(ref r) = (*s).src{
-                r.y()
-            }else {
-                0i32
-            };
 
             unsafe {
                 if BGY <= 0.0f32{
@@ -288,8 +280,8 @@ fn create_plane_player(
         if p.is_visible(){
             let mut vec:(f32,f32) = unsafe { (MOUSE_POS.0 as f32 - p.x(),MOUSE_POS.1 as f32 - p.y()) };
             if vec.0.abs() > 1f32 || vec.1.abs() > 1f32 {
-                vec.0 *= (0.02f32 * delatime);
-                vec.1 *= (0.02f32 * delatime);
+                vec.0 *= 0.02f32 * delatime;
+                vec.1 *= 0.02f32 * delatime;
             }
             unsafe { (*p.getRefMut()).set_pos((p.x() + vec.0,p.y() + vec.1)); }
             let n1 = rand::random::<u32>() % 30;

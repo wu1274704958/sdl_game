@@ -64,7 +64,7 @@ impl BV for Sprite{
 
     fn in_bound(&self, p: (i32, i32)) -> bool {
         if let Some(ref r) = self.dst{
-            return r.contains(p);
+            return r.contains_point(p);
         }
         false
     }
@@ -104,7 +104,7 @@ impl Sprite{
     }
 
     pub fn getRefMut(&self) -> *mut Sprite{
-        unsafe { (self as *const Sprite) as * mut Sprite}
+         (self as *const Sprite) as * mut Sprite
     }
 
 }

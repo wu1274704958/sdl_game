@@ -1,4 +1,3 @@
-use ::sprite::Sprite;
 use ::sprite::{DH,Drawable,BV,EventHandle,HasTag,Update};
 use ::sdl2::render::WindowCanvas;
 use ::sdl2::rect::Rect;
@@ -52,7 +51,7 @@ impl Plane{
         self.calc_dst();
     }
     pub fn getRefMut(&self) -> *mut Plane{
-        unsafe { (self as *const Plane) as * mut Plane}
+         (self as *const Plane) as * mut Plane
     }
     pub fn setEventFunc(&mut self,f : Box<Fn(&Event,&Plane)->()>)
     {
@@ -88,7 +87,7 @@ impl BV for Plane{
         self.isVisible
     }
 
-    fn in_bound(&self, p: (i32, i32)) -> bool {
+    fn in_bound(&self, _: (i32, i32)) -> bool {
         true
     }
 }
@@ -165,7 +164,7 @@ impl<'a> Bullet<'a>{
         self.dst = Some(Rect::new(self.x as i32 - (self.w / 2) as i32,self.y as i32 - (self.h / 2) as i32,self.w,self.h));
     }
     pub fn getRefMut(&self) -> *mut Bullet{
-        unsafe { (self as *const Bullet) as * mut Bullet}
+         (self as *const Bullet) as * mut Bullet
     }
     pub fn setUpdateFunc(&mut self,f : Box<Fn(f32,&Bullet)->()>)
     {
@@ -221,7 +220,7 @@ impl<'a> Drawable for Bullet<'a>{
 }
 
 impl<'a> EventHandle for Bullet<'a>{
-    fn on_handle_event(&self,e: &Event) {
+    fn on_handle_event(&self,_: &Event) {
 
     }
 }
@@ -231,7 +230,7 @@ impl<'a> BV for Bullet<'a>{
         self.isVisible
     }
 
-    fn in_bound(&self, p: (i32, i32)) -> bool {
+    fn in_bound(&self, _: (i32, i32)) -> bool {
         false
     }
 }
