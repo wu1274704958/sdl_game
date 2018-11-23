@@ -289,10 +289,7 @@ fn create_plane_player(
                 create_plane_enemy(Weak::clone(&sps_clone),Weak::clone(&buffer_clone));
             }
             if unsafe{IS_SHUT && SHUT_N == 8u8 } {
-
-                unsafe {
-                    create_bullet_player(MOUSE_POS.0 as f32,MOUSE_POS.1 as f32,Weak::clone(&sps),Weak::clone(&buffer));
-                }
+                create_bullet_player(p.x(),p.y(),Weak::clone(&sps),Weak::clone(&buffer));
             }
            unsafe {
                if SHUT_N == 8u8{
